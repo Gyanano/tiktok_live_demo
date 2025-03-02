@@ -1,0 +1,38 @@
+# IDE生成的文件夹
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 程序运行时产生的文件夹
+venv/
+logs/
+*.log
+.env
+.DS_Store
+node_modules/
+tmp/
+
+# 备份文件夹
+backup/
+*.bak
+*.swp
+*.swo

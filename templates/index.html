@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok直播监听工具</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <div class="col-md-3 sidebar">
+                <div class="sidebar-header">
+                    <h3>TikTok直播监听</h3>
+                    <p class="text-muted">实时获取直播互动信息</p>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>直播间设置</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="crawler-form">
+                            <div class="mb-3">
+                                <label for="url-input" class="form-label">TikTok直播间URL或ID</label>
+                                <input type="text" class="form-control" id="url-input" placeholder="例如: @username">
+                                <div class="form-text">支持多种格式：用户名(@username)、房间ID</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="http-proxy-input" class="form-label">HTTP代理设置（可选）</label>
+                                <input type="text" class="form-control" id="http-proxy-input" placeholder="例如: http://127.0.0.1:7890">
+                                <div class="form-text">用于Web请求的HTTP代理</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="socks-proxy-input" class="form-label">SOCKS代理设置（可选）</label>
+                                <input type="text" class="form-control" id="socks-proxy-input" placeholder="例如: socks5://127.0.0.1:7889">
+                                <div class="form-text">用于WebSocket连接的SOCKS代理</div>
+                            </div>
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="use-mock">
+                                <label class="form-check-label" for="use-mock">使用模拟数据（用于测试）</label>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary" id="start-btn">开始监听</button>
+                                <button type="button" class="btn btn-danger" id="stop-btn" disabled>停止监听</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>统计信息</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-container">
+                            <div class="stat-item">
+                                <div class="stat-icon"><i class="bi bi-chat-dots"></i></div>
+                                <div class="stat-info">
+                                    <div class="stat-label">评论</div>
+                                    <div class="stat-value" id="comment-count">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon"><i class="bi bi-gift"></i></div>
+                                <div class="stat-info">
+                                    <div class="stat-label">礼物</div>
+                                    <div class="stat-value" id="gift-count">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon"><i class="bi bi-heart"></i></div>
+                                <div class="stat-info">
+                                    <div class="stat-label">点赞</div>
+                                    <div class="stat-value" id="like-count">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon"><i class="bi bi-person-plus"></i></div>
+                                <div class="stat-info">
+                                    <div class="stat-label">关注</div>
+                                    <div class="stat-value" id="follow-count">0</div>
+                                </div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-icon"><i class="bi bi-share"></i></div>
+                                <div class="stat-info">
+                                    <div class="stat-label">分享</div>
+                                    <div class="stat-value" id="share-count">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>过滤设置</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="filter-options">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-comment" checked>
+                                <label class="form-check-label" for="filter-comment">显示评论</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-gift" checked>
+                                <label class="form-check-label" for="filter-gift">显示礼物</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-like" checked>
+                                <label class="form-check-label" for="filter-like">显示点赞</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-follow" checked>
+                                <label class="form-check-label" for="filter-follow">显示关注</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-share" checked>
+                                <label class="form-check-label" for="filter-share">显示分享</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="filter-system" checked>
+                                <label class="form-check-label" for="filter-system">显示系统消息</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 主内容区 -->
+            <div class="col-md-9 main-content">
+                <div class="status-bar">
+                    <div class="status-indicator">
+                        <span class="status-badge" id="status-badge">未连接</span>
+                        <span id="room-info"></span>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn btn-sm btn-outline-secondary" id="clear-btn">清空消息</button>
+                        <button class="btn btn-sm btn-outline-primary" id="export-btn">导出数据</button>
+                        <button class="btn btn-sm btn-outline-success" id="refresh-btn">刷新消息</button>
+                    </div>
+                </div>
+                
+                <div id="error-container" class="alert alert-danger d-none">
+                    <strong>错误：</strong> <span id="error-message"></span>
+                </div>
+                
+                <div class="message-container" id="message-container">
+                    <div class="text-center text-muted py-5" id="empty-message">
+                        <i class="bi bi-broadcast display-1"></i>
+                        <p class="mt-3">点击"开始监听"按钮开始获取直播互动信息</p>
+                    </div>
+                </div>
+                
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5>使用说明</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="accordion" id="helpAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                        支持的URL格式
+                                    </button>
+                                </h2>
+                                <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                    <div class="accordion-body">
+                                        <ul>
+                                            <li>用户名：<code>@username</code></li>
+                                            <li>直播间链接：<code>https://tiktok.com/@username/live</code></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                        常见问题
+                                    </button>
+                                </h2>
+                                <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                    <div class="accordion-body">
+                                        <ol>
+                                            <li>
+                                                <strong>无法连接到TikTok：</strong>
+                                                <p>由于网络限制，可能无法直接访问TikTok。请尝试使用代理，或者勾选"使用模拟数据"选项进行测试。</p>
+                                            </li>
+                                            <li>
+                                                <strong>提示"无效的URL或ID"：</strong>
+                                                <p>请检查输入的URL或ID格式是否正确，或者该直播间可能已经下播。</p>
+                                            </li>
+                                            <li>
+                                                <strong>连接成功但没有弹幕：</strong>
+                                                <p>可能是直播间当前没有活跃的弹幕，请耐心等待。</p>
+                                            </li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                        重要说明
+                                    </button>
+                                </h2>
+                                <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                                    <div class="accordion-body">
+                                        <p><strong>关于WebSocket连接限制：</strong> 受TikTok平台限制，当前版本可能无法直接连接到TikTok的WebSocket服务器获取实时弹幕数据。这是因为TikTok采取了多种措施来防止自动抓取，如：</p>
+                                        <ul>
+                                            <li>复杂的认证和参数要求</li>
+                                            <li>频繁变更的API接口</li>
+                                            <li>主动检测并阻止非官方客户端</li>
+                                        </ul>
+                                        <p>在这种情况下，系统会自动使用模拟数据模式。模拟数据可用于UI测试和开发，但不反映实际直播情况。</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息模板 -->
+    <template id="chat-template">
+        <div class="message chat-message">
+            <div class="message-header">
+                <span class="user-name"></span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content"></div>
+        </div>
+    </template>
+
+    <template id="gift-template">
+        <div class="message gift-message">
+            <div class="message-header">
+                <span class="user-name"></span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content">
+                赠送 <span class="gift-name"></span> x<span class="gift-count"></span>
+            </div>
+        </div>
+    </template>
+
+    <template id="like-template">
+        <div class="message like-message">
+            <div class="message-header">
+                <span class="user-name"></span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content">
+                点了 <span class="like-count"></span> 个赞
+            </div>
+        </div>
+    </template>
+
+    <template id="follow-template">
+        <div class="message follow-message">
+            <div class="message-header">
+                <span class="user-name"></span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content">
+                关注了主播
+            </div>
+        </div>
+    </template>
+
+    <template id="share-template">
+        <div class="message share-message">
+            <div class="message-header">
+                <span class="user-name"></span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content">
+                分享了直播间
+            </div>
+        </div>
+    </template>
+
+    <template id="system-template">
+        <div class="message system-message">
+            <div class="message-header">
+                <span class="system-label">系统消息</span>
+                <span class="message-time"></span>
+            </div>
+            <div class="message-content"></div>
+        </div>
+    </template>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/socket.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html> 
