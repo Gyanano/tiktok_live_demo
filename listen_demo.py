@@ -24,7 +24,7 @@ client: TikTokLiveClient = TikTokLiveClient(
 # Listen to an event with a decorator!
 @client.on(ConnectEvent)
 async def on_connect(event: ConnectEvent):
-    print(f"Connected to @{event.unique_id} (Room ID: {client.room_id}")
+    print(f"Connected to @{event.unique_id} (Room ID: {client.room_id})")
 
 
 @client.on(GiftEvent)
